@@ -20,7 +20,7 @@ module.exports = {
     GetTime, Print: (type, message) => {
         message = `${GetTime()} ${type} ${message}`;
 
-        console.log(message);
+        console.log(`${path.basename(process.argv.at(1))}:${colors.gray(process.pid)}`.concat(message));
         return message;
     },
     RED: colors.red,

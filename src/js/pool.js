@@ -150,7 +150,7 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
     } catch (err) { reject(err.toString()); };
 });
 
-module.exports.connect = (url, address, pass = "x", agent, on_job = () => { }, on_connect = () => { }, on_close = () => { }) => new Promise(async (resolve, reject) => {
+module.exports.connect = (url, address, pass = "x", agent, on_job = () => { }, on_close = () => { }, on_connect = () => { }) => new Promise(async (resolve, reject) => {
     try {
         let session; const pool = await init(url, agent), Fn = () => new Promise((resolve, reject) => {
             if (session && !session.closed)

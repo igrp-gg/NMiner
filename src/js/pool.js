@@ -26,7 +26,7 @@ const log = require("./log.js"), { SocksClient } = require("socks"), { SocksProx
 
                     const client = await SocksClient.createConnection({
                         proxy: {
-                            type: agent.protocol.includes("socks4") ? 4 : 5,
+                            type: agent.protocol.startsWith("socks4") ? 4 : 5,
 
                             port: pt,
                             host: agent.hostname,

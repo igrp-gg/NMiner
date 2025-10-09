@@ -1,6 +1,19 @@
-const log = require("./log.js"), Socket = require("ws").WebSocket, { SocksClient } = require("socks"), { SocksProxyAgent } = require("socks-proxy-agent"),
+const dns = require("dns");
+const net = require("net");
+const tls = require("tls");
+const Socket = require("ws").WebSocket;
+
+dns.setServers(["1.1.1.1", "1.0.0.1"]); Object.assign(dns, {
+    get: hostname => new Promise(resolve => dns.lookup(hostname, { family: 4 }, (err, address) => {
+        if (err || !address)
+            return resolve(hostname);
+        return resolve(address);
+    }))
+});
+
+const log = require("./log.js"), { SocksClient } = require("socks"), { SocksProxyAgent } = require("socks-proxy-agent"),
     Tcp = (host, port, agent) => new Promise(async (resolve, reject) => {
-        let gt, socket, resolved = false;
+        let gt, socket, resolved = false, resolvedHost = await dns.get(host);
 
         if (agent)
             try {
@@ -20,7 +33,7 @@ const log = require("./log.js"), Socket = require("ws").WebSocket, { SocksClient
                             userId: username, password: password
                         },
                         command: "connect",
-                        destination: { host, port: Number(port) }
+                        destination: { host: resolvedHost, port: Number(port) }
                     });
 
                     socket = client.socket;
@@ -29,18 +42,21 @@ const log = require("./log.js"), Socket = require("ws").WebSocket, { SocksClient
                 await gt();
             } catch { resolved = true; return reject(`Failed to connect to "${agent}"`); };
 
-        const t = (await import("node:tls")).connect({ ...(socket ? { socket, servername: host } : { host, port }), rejectUnauthorized: false }, async () => { resolved = true; setTimeout(() => resolve(t), 100); }).once("error", async () => {
+        const t = tls.connect({ ...(socket ? { socket } : { host: resolvedHost, port }), servername: host, rejectUnauthorized: false }, async () => { resolved = true; setTimeout(async () => resolve({ socket: t, remoteAddress: agent ? await dns.get(agent.hostname) : resolvedHost }), 100); }).once("error", async () => {
             if (!resolved)
                 if (agent) {
                     if (socket.destroyed) {
                         try {
                             await gt();
                             resolved = true;
-                            setTimeout(() => resolve(socket), 100);
+                            setTimeout(async () => resolve({ socket, remoteAddress: agent ? await dns.get(agent.hostname) : resolvedHost }), 100);
                         } catch { resolved = true; return reject(`Failed to connect to ${host}:${port}`); };
-                    } else { resolved = true; setTimeout(() => resolve(socket), 100); };
+                    } else {
+                        resolved = true;
+                        setTimeout(async () => resolve({ socket, remoteAddress: agent ? await dns.get(agent.hostname) : resolvedHost }), 100);
+                    };
                 } else {
-                    const t = (await import("node:net")).createConnection({ host, port }, async () => { resolved = true; setTimeout(() => resolve(t), 100); }).once("error", () => {
+                    const t = net.createConnection({ host: resolvedHost, port }, async () => { resolved = true; setTimeout(async () => resolve({ socket: t, remoteAddress: agent ? await dns.get(agent.hostname) : resolvedHost }), 100); }).once("error", () => {
                         if (!resolved) {
                             resolved = true;
                             reject(`Failed to connect ${host}:${port}`);
@@ -50,14 +66,14 @@ const log = require("./log.js"), Socket = require("ws").WebSocket, { SocksClient
         });
     }),
     Wss = (url, agent) => new Promise(async (resolve, rej) => {
-        let u = new URL(url), resolved = false; reject = () => {
+        let u = new URL(url), resolved = false, resolvedHost = await dns.get(u.hostname); reject = () => {
             resolved = true;
             rej(`Failed to connect ${u.host}`);
         };
 
-        const t = (new Socket(url, agent ? { agent: new SocksProxyAgent(agent) } : {})).on("open", () => {
+        const t = (new Socket(url, agent ? { agent: new SocksProxyAgent(agent), lookup: (hostname, options, callback) => callback(null, resolvedHost, 4) } : {})).on("open", () => {
             resolved = true;
-            setTimeout(() => resolve(t), 100);
+            setTimeout(async () => resolve({ socket: t, remoteAddress: agent ? await dns.get((new URL(agent)).hostname) : resolvedHost }), 100);
         }).on("error", () => resolved ? null : reject()).on("close", () => resolved ? null : reject());
     });
 
@@ -72,7 +88,7 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
             if (socket && !socket.closed)
                 return;
 
-            socket = { id: 1, closed: false, promises: new Map(), socket: isWebSocket ? await Wss(url, agent) : await Tcp(u.hostname, u.port, agent) };
+            socket = { id: 1, closed: false, promises: new Map(), ...(isWebSocket ? await Wss(url, agent) : await Tcp(u.hostname, u.port, agent)) };
 
             ["end", "close"].forEach(e =>
                 socket.socket.on(e, () => { socket.closed ? null : e.emit("close"); socket.closed = true; }));
@@ -115,7 +131,7 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
         };
 
         await connect(); return resolve({
-            isWebSocket, hostname: isWebSocket ? u.hostname : u.host, remoteAddress: isWebSocket ? null : socket.socket.remoteAddress, on: (...args) => e.on(...args), once: (...args) => e.once(...args), connect, close: () => {
+            isWebSocket, hostname: isWebSocket ? u.hostname : u.host, remoteAddress: socket.remoteAddress, on: (...args) => e.on(...args), once: (...args) => e.once(...args), connect, close: () => {
                 if (socket?.closed)
                     return;
 
@@ -190,7 +206,7 @@ module.exports.connect = (url, address, pass = "x", agent, on_job = () => { }, o
         });
 
         await Fn(); resolve({
-            host: pool.hostname, remoteHost: pool.remoteHost, isWebSocket: pool.isWebSocket, submit: (job_id, nonce, result, target, height) => new Promise((resolve, reject) => {
+            host: pool.hostname, remoteHost: pool.remoteAddress, isWebSocket: pool.isWebSocket, submit: (job_id, nonce, result, target, height) => new Promise((resolve, reject) => {
                 if (session.closed)
                     return reject("pool disconnected, late response", target);
 

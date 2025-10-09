@@ -8,6 +8,7 @@ const PrintHashes = (i, n) => (n ? (n > 800 ? i / 1000 : i) : i > 800 ? i / 1000
 module.exports.NMiner = class {
     constructor(...args) {
         let pool = null, address = null, pass = "x", options = {};
+
         if (args.length == 1 && typeof args[0] == "string")
             pool = args[0];
 

@@ -109,6 +109,7 @@ Napi::Object InitFn(const Napi::CallbackInfo &info)
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
     exports.Set("init", Napi::Function::New(env, InitFn));
+    exports.Set("version", Napi::String::New(env, "v1.2.3"));
     return exports;
 };
 

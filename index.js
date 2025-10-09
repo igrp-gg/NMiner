@@ -116,14 +116,14 @@ module.exports.NMiner = class {
 
                     lastTotalHashes = totalHashes;
                 }, 5 * 60000);
-            } catch (err) { Print(BLUE_BOLD(" net     "), RED(err)); setTimeout(() => connectTo(), 10000); };
+            } catch (err) { Print(BLUE_BOLD(" net     "), RED(err?.stack || err)); setTimeout(() => connectTo(), 10000); };
         })();
 
         process.on("SIGINT", () => { nminer.cleanup(); process.exit(); });
         process.on("SIGTERM", () => { nminer.cleanup(); process.exit(); });
 
         process.on("uncaughtException", err => {
-            Print(YELLOW_BOLD(" signal  "), `${WHITE_BOLD("Program Error. Exiting ...")} ${err}`);
+            Print(YELLOW_BOLD(" signal  "), `${WHITE_BOLD("Program Error. Exiting ...")} ${err.stack}`);
             nminer.cleanup();
 
             if (p)
@@ -132,7 +132,7 @@ module.exports.NMiner = class {
         });
 
         process.on("unhandledRejection", err => {
-            Print(YELLOW_BOLD(" signal  "), `${WHITE_BOLD("Program Error. Exiting ...")} ${err}`);
+            Print(YELLOW_BOLD(" signal  "), `${WHITE_BOLD("Program Error. Exiting ...")} ${err.stack}`);
             nminer.cleanup();
 
             if (p)
@@ -264,7 +264,7 @@ module.exports.NMinerProxy = class {
                             WebSocket.send(JSON.stringify([id, null, { status: "OK" }]));
                             break;
                     };
-                } catch (err) { Print(YELLOW_BOLD(" signal  "), "Program Error: " + err); };
+                } catch (err) { Print(YELLOW_BOLD(" signal  "), "Program Error: " + err.stack); };
             });
         })
             .on("listening", () => Print(BLUE_BOLD(" net     "), `listening on ${options.port}`));

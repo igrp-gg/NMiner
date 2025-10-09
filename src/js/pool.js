@@ -126,7 +126,7 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
                             socket.promises.delete(data.id);
                         };
                     };
-                } catch (err) { log.Print(log.YELLOW_BOLD(" signal  "), "JSON Error: " + err.toString()); };
+                } catch (err) { log.Print(log.YELLOW_BOLD(" signal  "), "JSON Error: " + err.stack); };
             });
         };
 
@@ -163,7 +163,7 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
                     socket.socket.write(`${JSON.stringify({ id: ii, jsonrpc: "2.0", method, params })}\n`);
             })
         });
-    } catch (err) { reject(err.toString()); };
+    } catch (err) { reject(err?.stack || err); };
 });
 
 module.exports.connect = (url, address, pass = "x", agent, on_job = () => { }, on_close = () => { }, on_connect = () => { }) => new Promise(async (resolve, reject) => {
@@ -216,5 +216,5 @@ module.exports.connect = (url, address, pass = "x", agent, on_job = () => { }, o
             close: () => { session.closed = true; pool.close(); },
             reconnect: async () => { await pool.connect(); await Fn(); }
         });
-    } catch (err) { reject(err); };
+    } catch (err) { reject(err?.stack || err); };
 });

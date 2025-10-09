@@ -7,13 +7,14 @@ const log = require("./log.js"), Socket = require("ws").WebSocket, { SocksClient
                 gt = async () => {
                     agent = new URL(agent);
 
-                    const pt = Number(agent.port) || 1080;
+                    const pt = Number(agent.port);
                     const username = agent.username.length > 0 ? decodeURIComponent(agent.username) : undefined;
                     const password = agent.password.length > 0 ? decodeURIComponent(agent.password) : undefined;
 
                     const client = await SocksClient.createConnection({
                         proxy: {
-                            type: 5,
+                            type: agent.protocol.includes("socks4") ? 4 : 5,
+
                             port: pt,
                             host: agent.hostname,
                             userId: username, password: password
@@ -26,7 +27,7 @@ const log = require("./log.js"), Socket = require("ws").WebSocket, { SocksClient
                 };
 
                 await gt();
-            } catch { resolved = true; return reject(`Failed to connect to Proxy "${agent}"`); };
+            } catch { resolved = true; return reject(`Failed to connect to "${agent}"`); };
 
         const t = (await import("node:tls")).connect({ ...(socket ? { socket, servername: host } : { host, port }), rejectUnauthorized: false }, async () => { resolved = true; setTimeout(() => resolve(t), 100); }).once("error", async () => {
             if (!resolved)
@@ -36,7 +37,7 @@ const log = require("./log.js"), Socket = require("ws").WebSocket, { SocksClient
                             await gt();
                             resolved = true;
                             setTimeout(() => resolve(socket), 100);
-                        } catch { resolved = true; return reject(`Failed to connect to TCP Socket ${host}:${port}`); };
+                        } catch { resolved = true; return reject(`Failed to connect to ${host}:${port}`); };
                     } else { resolved = true; setTimeout(() => resolve(socket), 100); };
                 } else {
                     const t = (await import("node:net")).createConnection({ host, port }, async () => { resolved = true; setTimeout(() => resolve(t), 100); }).once("error", () => {
@@ -62,7 +63,9 @@ const log = require("./log.js"), Socket = require("ws").WebSocket, { SocksClient
 
 const init = (url, agent) => new Promise(async (resolve, reject) => {
     try {
-        let u = new URL(url), e = new (await import("node:events")).EventEmitter(), isWebSocket = false, socket; if (["ws:", "wss:"].includes(u.protocol))
+        let u = new URL(url), e = new (await import("node:events")).EventEmitter(), isWebSocket = false, socket;
+
+        if (["ws:", "wss:"].includes(u.protocol))
             isWebSocket = true;
 
         const connect = async () => {
@@ -70,14 +73,22 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
                 return;
 
             socket = { id: 1, closed: false, promises: new Map(), socket: isWebSocket ? await Wss(url, agent) : await Tcp(u.hostname, u.port, agent) };
-            return socket.socket.on("close", () => { socket.closed ? null : e.emit("close"); socket.closed = true; }).on("end", () => { socket.closed ? null : e.emit("close"); socket.closed = true; }).on(isWebSocket ? "message" : "data", async data => {
+
+            ["end", "close"].forEach(e =>
+                socket.socket.on(e, () => { socket.closed ? null : e.emit("close"); socket.closed = true; }));
+
+            return socket.socket.on(isWebSocket ? "message" : "data", async data => {
                 try {
-                    data = JSON.parse(data.toString()); if (isWebSocket) {
+                    data = JSON.parse(data.toString());
+
+                    if (isWebSocket) {
                         if (typeof data[0] == "string")
                             return e.emit(data[0], data[1]);
 
                         if (socket.promises.has(data[0])) {
-                            const promise = socket.promises.get(data[0]); clearTimeout(promise.timeout); if (data[1] != null && typeof data[1] == "string")
+                            const promise = socket.promises.get(data[0]); clearTimeout(promise.timeout);
+
+                            if (data[1] != null && typeof data[1] == "string")
                                 promise.reject(data[1]);
                             else
                                 promise.resolve(data[2]);
@@ -89,7 +100,9 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
                             return e.emit(data.method, data.params);
 
                         if (socket.promises.has(data.id)) {
-                            const promise = socket.promises.get(data.id); clearTimeout(promise.timeout); if (data.error != null && "message" in data.error)
+                            const promise = socket.promises.get(data.id); clearTimeout(promise.timeout);
+
+                            if (data.error != null && "message" in data.error)
                                 promise.reject(data.error.message);
                             else
                                 promise.resolve(data.result);
@@ -97,12 +110,12 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
                             socket.promises.delete(data.id);
                         };
                     };
-                } catch (err) { log.Print(log.YELLOW_BOLD(" signal  "), "JSON Error: " + err); };
+                } catch (err) { log.Print(log.YELLOW_BOLD(" signal  "), "JSON Error: " + err.toString()); };
             });
         };
 
         await connect(); return resolve({
-            isWebSocket, hostname: isWebSocket ? u.hostname : u.host, remoteHost: isWebSocket ? null : socket.socket.remoteAddress, on: (...args) => e.on(...args), once: (...args) => e.once(...args), connect, close: () => {
+            isWebSocket, hostname: isWebSocket ? u.hostname : u.host, remoteAddress: isWebSocket ? null : socket.socket.remoteAddress, on: (...args) => e.on(...args), once: (...args) => e.once(...args), connect, close: () => {
                 if (socket?.closed)
                     return;
 
@@ -122,7 +135,7 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
                             return socket.promises.delete(ii);
 
                         if (socket.promises.has(ii)) {
-                            reject("30s Timeout");
+                            reject("Timeout");
                             socket.promises.delete(ii);
                         };
                     }, 30000)
@@ -134,25 +147,29 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
                     socket.socket.write(`${JSON.stringify({ id: ii, jsonrpc: "2.0", method, params })}\n`);
             })
         });
-    } catch (err) { reject(err); };
+    } catch (err) { reject(err.toString()); };
 });
 
-module.exports.connect = (url, address, pass = "x", agent, on_job = () => { }, on_close = () => { }, on_connect = () => { }) => new Promise(async (resolve, reject) => {
+module.exports.connect = (url, address, pass = "x", agent, on_job = () => { }, on_connect = () => { }, on_close = () => { }) => new Promise(async (resolve, reject) => {
     try {
         let session; const pool = await init(url, agent), Fn = () => new Promise((resolve, reject) => {
             if (session && !session.closed)
                 return;
 
-            pool.send("login", pool.isWebSocket ? [address, pass] : { login: address, pass: "x", agent: "nodejs / v1.2.2", algo: ["rx/0"] }).then(({ id: _id, job }) => {
+            pool.send("login", pool.isWebSocket ? [address, pass] : { login: address, pass: "x", agent: "nodejs / v1.2.2", algo: ["rx/0"], extensions: ["nicehash", "keepalive"] }).then(({ id: _id, job, extensions }) => {
                 resolve(); session = {
                     id: _id, closed: false, interval: setInterval(async () => {
                         try {
-                            await pool.send("keepalived", pool.isWebSocket ? _id : { id: _id })
+                            if (pool.isWebSocket)
+                                await pool.send("keepalived", _id);
+
+                            if (!pool.isWebSocket && Array.isArray(extensions) && extensions.includes("keepalive"))
+                                await pool.send("keepalive", { id: _id });
                         } catch { };
                     }, 60000)
                 };
 
-                setTimeout(() => { on_connect(); on_job({ job_id: job.job_id, seed_hash: job.seed_hash, target: job.target, blob: job.blob, ...("height" in job ? { height: job.height } : {}) }); }, 500);
+                setTimeout(() => { on_connect(); on_job({ job_id: job.job_id, seed_hash: job.seed_hash, target: job.target, blob: job.blob, ...("height" in job ? { height: job.height } : {}) }); }, 100);
             }).catch(err => { reject(err); pool.close(); });
         });
 

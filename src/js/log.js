@@ -1,4 +1,4 @@
-const colors = require("colors/safe"), GetTime = t => {
+const path = require("path"), colors = require("colors/safe"), GetTime = t => {
     if (t)
         return colors.gray(`(${(new Date()).getTime() - t} ms)`);
 
@@ -20,7 +20,7 @@ module.exports = {
     GetTime, Print: (type, message) => {
         message = `${GetTime()} ${type} ${message}`;
 
-        console.log(`${path.basename(process.argv.at(1))}:${colors.gray(process.pid)}`.concat(message));
+        console.log(`${path.basename(process.argv.at(1))}:${colors.gray(process.pid)} `.concat(message));
         return message;
     },
     RED: colors.red,

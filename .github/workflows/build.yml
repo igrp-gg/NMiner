@@ -62,8 +62,8 @@ jobs:
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v1.2.3
-          name: NMiner v1.2.3
+          tag_name: v1.2.4
+          name: NMiner v1.2.4
           draft: true
           files: |
             artifacts/nminer-ubuntu-22.04/nminer-ubuntu-22.04.tar.gz

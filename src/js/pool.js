@@ -90,8 +90,8 @@ const init = (url, agent) => new Promise(async (resolve, reject) => {
 
             socket = { id: 1, closed: false, promises: new Map(), ...(isWebSocket ? await Wss(url, agent) : await Tcp(u.hostname, u.port, agent)) };
 
-            ["end", "close"].forEach(e =>
-                socket.socket.on(e, () => { socket.closed ? null : e.emit("close"); socket.closed = true; }));
+            ["end", "close"].forEach(j =>
+                socket.socket.on(j, () => { socket.closed ? null : e.emit("close"); socket.closed = true; }));
 
             return socket.socket.on(isWebSocket ? "message" : "data", async data => {
                 try {

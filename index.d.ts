@@ -7,11 +7,13 @@ interface MinerOptions {
     mode?: mode;
     proxy?: string;
     threads?: number;
+    logging?: boolean;
 }
 
 interface ProxyOptions {
     port?: number;
     proxy?: string;
+    logging?: boolean;
     handler?: EventEmitter;
     onShare?: (address: string, target: number, height?: number) => void | Promise<void>;
     onConnection?: (address: string, pass: string, threads: number) => boolean | connection | Promise<boolean | connection>;

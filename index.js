@@ -7,7 +7,7 @@ const PrintDiff = i => i >= 100000000 ? `${Math.round(i / 1000000)}M` : i;
 const PrintHashes = (i, n) => (n ? (n > 800 ? i / 1000 : i) : i > 800 ? i / 1000 : i).toFixed(1);
 module.exports.NMiner = class {
     constructor(...args) {
-        let pool = null, address = null, pass = "x", options = {};
+        let pool = null, address = null, pass = "x", options = { mode: "FAST", logging: true };
 
         if (args.length == 1 && typeof args[0] == "string")
             pool = args[0];
@@ -47,8 +47,11 @@ module.exports.NMiner = class {
         let p, accepted = 0, rejected = 0, submitFn, nminer = miner.init(options.mode, options.threads, (...args) => submitFn(...args));
 
         const lPages = nminer.lPages(), hugePages = nminer.hugePages();
-        console.log(GREEN(" * "), `${WHITE_BOLD("1GB PAGES")}        ${(lPages == 0 ? GREEN : lPages == -1 ? RED : YELLOW)(lPages == 0 ? "supported" : lPages == -1 ? "disabled" : "restart required")}`);
-        console.log(GREEN(" * "), `${WHITE_BOLD("HUGE PAGES")}       ${(hugePages == 0 ? GREEN : hugePages == -1 ? RED : YELLOW)(hugePages == 0 ? "supported" : hugePages == -1 ? "disabled" : "restart required")}`);
+
+        if (options.logging) {
+            console.log(GREEN(" * "), `${WHITE_BOLD("1GB PAGES")}        ${(lPages == 0 ? GREEN : lPages == -1 ? RED : YELLOW)(lPages == 0 ? "supported" : lPages == -1 ? "disabled" : "restart required")}`);
+            console.log(GREEN(" * "), `${WHITE_BOLD("HUGE PAGES")}       ${(hugePages == 0 ? GREEN : hugePages == -1 ? RED : YELLOW)(hugePages == 0 ? "supported" : hugePages == -1 ? "disabled" : "restart required")}`);
+        };
 
         (async function connectTo() {
             let totalHashes = 0, jobCount = 0, temp_blob, temp_height, temp_seed_hash; try {
@@ -56,20 +59,29 @@ module.exports.NMiner = class {
                     jobCount++;
                     nminer.pause();
                     const { diff, txnCount } = nminer.job(job.job_id, job.target, job.blob, temp_blob != job.blob);
-                    Print(BLUE_BOLD(" net     "), `${MAGENTA("new job")} from ${p.host} diff ${WHITE_BOLD(PrintDiff(diff))} algo ${WHITE_BOLD("rx/0")}${"height" in job ? ` height ${WHITE_BOLD(job.height)}` : ""}${txnCount > 0 ? ` (${txnCount} tx)` : ""}`);
+
+                    if (options.logging)
+                        Print(BLUE_BOLD(" net     "), `${MAGENTA("new job")} from ${p.host} diff ${WHITE_BOLD(PrintDiff(diff))} algo ${WHITE_BOLD("rx/0")}${"height" in job ? ` height ${WHITE_BOLD(job.height)}` : ""}${txnCount > 0 ? ` (${txnCount} tx)` : ""}`);
 
                     temp_blob = job.blob;
                     temp_height = job.height;
                     if (temp_seed_hash != job.seed_hash) {
                         nminer.cleanup();
-                        Print(BLUE_BOLD(" randomx "), `${MAGENTA("init dataset")} algo ${WHITE_BOLD("rx/0")} (${CYAN(os.cpus().length + "")} threads) ${GRAY("seed " + job.seed_hash.slice(0, 16) + "...")}`);
+
+                        if (options.logging)
+                            Print(BLUE_BOLD(" randomx "), `${MAGENTA("init dataset")} algo ${WHITE_BOLD("rx/0")} (${CYAN(os.cpus().length + "")} threads) ${GRAY("seed " + job.seed_hash.slice(0, 16) + "...")}`);
 
                         let time = (new Date()).getTime(); if (nminer.alloc()) {
-                            time = (new Date()).getTime(); Print(BLUE_BOLD(" randomx "), `${GREEN("allocated")} ${nminer.mode != "LIGHT" ? `${CYAN("2336 MB")} ${GRAY("(2080+256)")}` : `${CYAN("256 MB")}`} ${GetTime(time)}`);
+                            time = (new Date()).getTime();
+
+                            if (options.logging)
+                                Print(BLUE_BOLD(" randomx "), `${GREEN("allocated")} ${nminer.mode != "LIGHT" ? `${CYAN("2336 MB")} ${GRAY("(2080+256)")}` : `${CYAN("256 MB")}`} ${GetTime(time)}`);
 
                             if (nminer.init(job.seed_hash, os.cpus().length)) {
-                                Print(BLUE_BOLD(" randomx "), `${GREEN("dataset ready")} ${GetTime(time)}`);
-                                Print(CYAN_BOLD(" cpu     "), `use profile ${BLUE_BOLD(" rx ")} (${CYAN(nminer.threads)} threads)`);
+                                if (options.logging) {
+                                    Print(BLUE_BOLD(" randomx "), `${GREEN("dataset ready")} ${GetTime(time)}`);
+                                    Print(CYAN_BOLD(" cpu     "), `use profile ${BLUE_BOLD(" rx ")} (${CYAN(nminer.threads)} threads)`);
+                                };
                             } else {
                                 Print(BLUE_BOLD(" randomx "), RED(`Failed to intialize ${BOLD("RandomX")} dataset.`));
                                 return;
@@ -90,7 +102,7 @@ module.exports.NMiner = class {
                     Print(BLUE_BOLD(" net     "), RED("pool disconnected, stop mining"));
 
                     return true;
-                }, () => { Print(BLUE_BOLD(" net     "), `use pool ${CYAN(`${p.host}`)}${p.remoteHost != null ? ` ${GRAY(p.remoteHost)}` : ""}`); });
+                }, () => { if (options.logging) Print(BLUE_BOLD(" net     "), `use pool ${CYAN(`${p.host}`)}${p.remoteHost != null ? ` ${GRAY(p.remoteHost)}` : ""}`); });
 
                 submitFn = async (...args) => {
                     try {
@@ -98,7 +110,9 @@ module.exports.NMiner = class {
 
                         accepted++;
                         totalHashes += target;
-                        Print(CYAN_BOLD(" cpu     "), `${GREEN(`accepted`)} (${accepted}/${(rejected > 0 ? RED : WHITE)(rejected)}) diff ${WHITE_BOLD(target)} ${GetTime(time)}`);
+
+                        if (options.logging)
+                            Print(CYAN_BOLD(" cpu     "), `${GREEN(`accepted`)} (${accepted}/${(rejected > 0 ? RED : WHITE)(rejected)}) diff ${WHITE_BOLD(target)} ${GetTime(time)}`);
                     } catch (err) { rejected++; Print(CYAN_BOLD(" cpu     "), `${RED("rejected")} (${accepted}/${RED(rejected)}) ${RED(err)}`); };
                 };
 
@@ -113,7 +127,9 @@ module.exports.NMiner = class {
                     lastAcceptedCount = accepted;
                     const threads = nminer.uThreads();
                     const hashrate = nminer.hashrate();
-                    Print(CYAN_BOLD(" cpu     "), `speed ${CYAN_BOLD(" cpu ")} ${PrintHashes(hashrate)} ${BLUE_BOLD(" pool ")} ${PrintHashes((totalHashes - lastTotalHashes) / 300, hashrate)} ${hashrate > 800 ? "kH/s" : "H/s"} ${CYAN(`(${(nminer.threads == threads ? CYAN : RED)(threads)}/${nminer.threads})`)}`);
+
+                    if (options.logging)
+                        Print(CYAN_BOLD(" cpu     "), `speed ${CYAN_BOLD(" cpu ")} ${PrintHashes(hashrate)} ${BLUE_BOLD(" pool ")} ${PrintHashes((totalHashes - lastTotalHashes) / 300, hashrate)} ${hashrate > 800 ? "kH/s" : "H/s"} ${CYAN(`(${(nminer.threads == threads ? CYAN : RED)(threads)}/${nminer.threads})`)}`);
 
                     lastTotalHashes = totalHashes;
                 }, 5 * 60000);
@@ -145,7 +161,7 @@ module.exports.NMiner = class {
 
 module.exports.NMinerProxy = class {
     constructor(...args) {
-        let pool = null, address = null, pass = "x", proxy = null, options = { port: 8080 };
+        let pool = null, address = null, pass = "x", proxy = null, options = { port: 8080, logging: true };
         if (args.length == 1 && typeof args[0] == "string")
             pool = args[0];
 
@@ -191,11 +207,15 @@ module.exports.NMinerProxy = class {
             let socket = null, logged = false, temp_addr, accepted = 0, rejected = 0, timeout = setTimeout(() => {
                 if (socket)
                     socket.close();
-                Print(BLUE_BOLD(" net     "), RED("miner timeout, closing socket."));
+
+                if (options.logging)
+                    Print(BLUE_BOLD(" net     "), RED("miner timeout, closing socket."));
             }, 5 * 60 * 1000); WebSocket.on("close", () => {
                 if (socket)
                     socket.close();
-                Print(BLUE_BOLD(" net     "), RED("miner disconnected, closing socket."));
+
+                if (options.logging)
+                    Print(BLUE_BOLD(" net     "), RED("miner disconnected, closing socket."));
             }).on("message", async data => {
                 try {
                     const [id, method, params] = JSON.parse(data.toString()); switch (method) {
@@ -224,7 +244,9 @@ module.exports.NMinerProxy = class {
                                     WebSocket.send(JSON.stringify(["job", job]));
                                 }, () => {
                                     WebSocket.close();
-                                    Print(BLUE_BOLD(" net     "), RED("pool disconnected, stop mining"));
+
+                                    if (options.logging)
+                                        Print(BLUE_BOLD(" net     "), RED("pool disconnected, stop mining"));
                                 }, () => { Print(BLUE_BOLD(" net     "), `${WHITE_BOLD(threads)} threads, connected`); });
                             } catch (err) {
                                 WebSocket.send(JSON.stringify([id, err.toString(), null]));
@@ -242,16 +264,22 @@ module.exports.NMinerProxy = class {
 
                                     accepted++;
                                     WebSocket.send(JSON.stringify([id, null, "OK"]));
-                                    Print(CYAN_BOLD(" cpu     "), `${GREEN(`accepted`)} (${accepted}/${(rejected > 0 ? RED : WHITE)(rejected)}) ${GetTime(time)}`);
+
+                                    if (options.logging)
+                                        Print(CYAN_BOLD(" cpu     "), `${GREEN(`accepted`)} (${accepted}/${(rejected > 0 ? RED : WHITE)(rejected)}) ${GetTime(time)}`);
                                 } catch (err) {
                                     rejected++;
                                     WebSocket.send(JSON.stringify([id, err, null]));
-                                    Print(CYAN_BOLD(" cpu     "), `${RED("rejected")} (${accepted}/${RED(rejected)})`);
+
+                                    if (options.logging)
+                                        Print(CYAN_BOLD(" cpu     "), `${RED("rejected")} (${accepted}/${RED(rejected)})`);
                                 };
                             } else {
                                 rejected++;
                                 WebSocket.send(JSON.stringify([id, "Pool not connected", null]));
-                                Print(CYAN_BOLD(" cpu     "), `${RED("rejected")} (${accepted}/${RED(rejected)})`);
+
+                                if (options.logging)
+                                    Print(CYAN_BOLD(" cpu     "), `${RED("rejected")} (${accepted}/${RED(rejected)})`);
                             };
                             break;
 
@@ -259,13 +287,15 @@ module.exports.NMinerProxy = class {
                             clearTimeout(timeout); timeout = setTimeout(() => {
                                 if (socket)
                                     socket.close();
-                                Print(BLUE_BOLD(" net     "), RED("miner timeout, closing socket."));
+
+                                if (options.logging)
+                                    Print(BLUE_BOLD(" net     "), RED("miner timeout, closing socket."));
                             }, 5 * 60 * 1000);
 
                             WebSocket.send(JSON.stringify([id, null, { status: "OK" }]));
                             break;
                     };
-                } catch (err) { Print(YELLOW_BOLD(" signal  "), "Program Error: " + err.stack); };
+                } catch (err) { if (options.logging) Print(YELLOW_BOLD(" signal  "), "Program Error: " + err.stack); };
             });
         })
             .on("listening", () => Print(BLUE_BOLD(" net     "), `listening on ${options.port}`));

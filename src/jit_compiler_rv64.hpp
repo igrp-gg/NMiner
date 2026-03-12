@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018-2019, tevador <tevador@gmail.com>
+Copyright (c) 2023 tevador <tevador@gmail.com>
 
 All rights reserved.
 
@@ -28,35 +28,55 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include <new>
-#include "vm_interpreted.hpp"
+#include <cstdint>
+#include <cstring>
+#include <vector>
+#include "jit_compiler.hpp"
 
 namespace randomx {
 
-	template<class Allocator, bool softAes>
-	class InterpretedLightVm : public InterpretedVm<Allocator, softAes> {
-	public:
-		using VmBase<Allocator, softAes>::mem;
-		using VmBase<Allocator, softAes>::cachePtr;
-		void* operator new(size_t size) {
-			void* ptr = AlignedAllocator<CacheLineSize>::allocMemory(size);
-			if (ptr == nullptr)
-				throw std::bad_alloc();
-			return ptr;
-		}
-		void operator delete(void* ptr) {
-			AlignedAllocator<CacheLineSize>::freeMemory(ptr, sizeof(InterpretedLightVm));
-		}
-		explicit InterpretedLightVm(randomx_flags flags) : InterpretedVm<Allocator, softAes>(flags) {}
-		void setDataset(randomx_dataset* dataset) override { }
-		void setCache(randomx_cache* cache) override;
-	protected:
-		void datasetRead(uint64_t address, int_reg_t(&r)[8]) override;
-		void datasetPrefetch(uint64_t address) override { }
-	};
+	class Program;
+	struct ProgramConfiguration;
+	class SuperscalarProgram;
+	class Instruction;
 
-	using InterpretedLightVmDefault = InterpretedLightVm<AlignedAllocator<CacheLineSize>, true>;
-	using InterpretedLightVmHardAes = InterpretedLightVm<AlignedAllocator<CacheLineSize>, false>;
-	using InterpretedLightVmLargePage = InterpretedLightVm<LargePageAllocator, true>;
-	using InterpretedLightVmLargePageHardAes = InterpretedLightVm<LargePageAllocator, false>;
+	class JitCompilerRV64 {
+	public:
+		JitCompilerRV64();
+		~JitCompilerRV64();
+		void generateProgram(Program&, ProgramConfiguration&);
+		void generateProgramLight(Program&, ProgramConfiguration&, uint32_t);
+		void generateSuperscalarHash(SuperscalarProgramList &programs, std::vector<uint64_t>&);
+		void generateDatasetInitCode() {}
+		ProgramFunc* getProgramFunc() {
+			return (ProgramFunc*)(vectorCode ? entryProgramVector : entryProgram);
+		}
+		DatasetInitFunc* getDatasetInitFunc() {
+			return (DatasetInitFunc*)((vectorCode && (vectorRegisterLength >= 256)) ? entryDataInitVector : entryDataInit);
+		}
+		uint8_t* getCode() {
+			return vectorCode ? vectorCode : state.code;
+		}
+		size_t getCodeSize();
+		void enableWriting();
+		void enableExecution();
+		void enableAll();
+
+		void setFlags(randomx_flags f) { flags = f; }
+
+		static uint8_t instMap[256];
+	private:
+		CompilerState state;
+
+		randomx_flags flags;
+
+		uint8_t* vectorCode = nullptr;
+		size_t vectorCodeSize = 0;
+		int vectorRegisterLength = 0;
+
+		void* entryDataInit = nullptr;
+		void* entryDataInitVector = nullptr;
+		void* entryProgram = nullptr;
+		void* entryProgramVector = nullptr;
+	};
 }

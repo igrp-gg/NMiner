@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018-2019, tevador <tevador@gmail.com>
+Copyright (c) 2023 tevador <tevador@gmail.com>
 
 All rights reserved.
 
@@ -28,35 +28,28 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include <new>
-#include "vm_interpreted.hpp"
-
-namespace randomx {
-
-	template<class Allocator, bool softAes>
-	class InterpretedLightVm : public InterpretedVm<Allocator, softAes> {
-	public:
-		using VmBase<Allocator, softAes>::mem;
-		using VmBase<Allocator, softAes>::cachePtr;
-		void* operator new(size_t size) {
-			void* ptr = AlignedAllocator<CacheLineSize>::allocMemory(size);
-			if (ptr == nullptr)
-				throw std::bad_alloc();
-			return ptr;
-		}
-		void operator delete(void* ptr) {
-			AlignedAllocator<CacheLineSize>::freeMemory(ptr, sizeof(InterpretedLightVm));
-		}
-		explicit InterpretedLightVm(randomx_flags flags) : InterpretedVm<Allocator, softAes>(flags) {}
-		void setDataset(randomx_dataset* dataset) override { }
-		void setCache(randomx_cache* cache) override;
-	protected:
-		void datasetRead(uint64_t address, int_reg_t(&r)[8]) override;
-		void datasetPrefetch(uint64_t address) override { }
-	};
-
-	using InterpretedLightVmDefault = InterpretedLightVm<AlignedAllocator<CacheLineSize>, true>;
-	using InterpretedLightVmHardAes = InterpretedLightVm<AlignedAllocator<CacheLineSize>, false>;
-	using InterpretedLightVmLargePage = InterpretedLightVm<LargePageAllocator, true>;
-	using InterpretedLightVmLargePageHardAes = InterpretedLightVm<LargePageAllocator, false>;
+extern "C" {
+	void randomx_riscv64_literals();
+	void randomx_riscv64_literals_end();
+	void randomx_riscv64_data_init();
+	void randomx_riscv64_fix_data_call();
+	void randomx_riscv64_prologue();
+	void randomx_riscv64_loop_begin();
+	void randomx_riscv64_data_read();
+	void randomx_riscv64_data_read_v2_tweak();
+	void randomx_riscv64_data_read_light();
+	void randomx_riscv64_data_read_light_v1();
+	void randomx_riscv64_data_read_light_v2();
+	void randomx_riscv64_fix_loop_call();
+	void randomx_riscv64_spad_store();
+	void randomx_riscv64_spad_store_softaes();
+	void randomx_riscv64_loop_end();
+	void randomx_riscv64_fix_continue_loop();
+	void randomx_riscv64_epilogue();
+	void randomx_riscv64_softaes();
+	void randomx_riscv64_program_end();
+	void randomx_riscv64_ssh_init();
+	void randomx_riscv64_ssh_load();
+	void randomx_riscv64_ssh_prefetch();
+	void randomx_riscv64_ssh_end();
 }

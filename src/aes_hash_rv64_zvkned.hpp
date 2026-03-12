@@ -1,5 +1,6 @@
 /*
 Copyright (c) 2018-2019, tevador <tevador@gmail.com>
+Copyright (c) 2025 SChernykh   <https://github.com/SChernykh>
 
 All rights reserved.
 
@@ -28,35 +29,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include <new>
-#include "vm_interpreted.hpp"
-
-namespace randomx {
-
-	template<class Allocator, bool softAes>
-	class InterpretedLightVm : public InterpretedVm<Allocator, softAes> {
-	public:
-		using VmBase<Allocator, softAes>::mem;
-		using VmBase<Allocator, softAes>::cachePtr;
-		void* operator new(size_t size) {
-			void* ptr = AlignedAllocator<CacheLineSize>::allocMemory(size);
-			if (ptr == nullptr)
-				throw std::bad_alloc();
-			return ptr;
-		}
-		void operator delete(void* ptr) {
-			AlignedAllocator<CacheLineSize>::freeMemory(ptr, sizeof(InterpretedLightVm));
-		}
-		explicit InterpretedLightVm(randomx_flags flags) : InterpretedVm<Allocator, softAes>(flags) {}
-		void setDataset(randomx_dataset* dataset) override { }
-		void setCache(randomx_cache* cache) override;
-	protected:
-		void datasetRead(uint64_t address, int_reg_t(&r)[8]) override;
-		void datasetPrefetch(uint64_t address) override { }
-	};
-
-	using InterpretedLightVmDefault = InterpretedLightVm<AlignedAllocator<CacheLineSize>, true>;
-	using InterpretedLightVmHardAes = InterpretedLightVm<AlignedAllocator<CacheLineSize>, false>;
-	using InterpretedLightVmLargePage = InterpretedLightVm<LargePageAllocator, true>;
-	using InterpretedLightVmLargePageHardAes = InterpretedLightVm<LargePageAllocator, false>;
-}
+void hashAes1Rx4_zvkned(const void *input, size_t inputSize, void *hash);
+void fillAes1Rx4_zvkned(void *state, size_t outputSize, void *buffer);
+void fillAes4Rx4_zvkned(void *state, size_t outputSize, void *buffer);
+void hashAndFillAes1Rx4_zvkned(void *scratchpad, size_t scratchpadSize, void *hash, void* fill_state);

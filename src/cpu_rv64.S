@@ -1,5 +1,6 @@
 /*
-Copyright (c) 2018-2019, tevador <tevador@gmail.com>
+Copyright (c) 2018-2020, tevador    <tevador@gmail.com>
+Copyright (c) 2025, SChernykh       <https://github.com/SChernykh>
 
 All rights reserved.
 
@@ -26,37 +27,21 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+.text
+.option arch, rv64gcv_zvkned
+.global rv64_test_vector
+.global rv64_test_vector_aes
 
-#include <new>
-#include "vm_interpreted.hpp"
+// Returns vector register length (in bits)
+rv64_test_vector:
+	li x10, 1024
+	vsetvli x10, x10, e64, m1, ta, ma
+	slli x10, x10, 6
+	ret
 
-namespace randomx {
-
-	template<class Allocator, bool softAes>
-	class InterpretedLightVm : public InterpretedVm<Allocator, softAes> {
-	public:
-		using VmBase<Allocator, softAes>::mem;
-		using VmBase<Allocator, softAes>::cachePtr;
-		void* operator new(size_t size) {
-			void* ptr = AlignedAllocator<CacheLineSize>::allocMemory(size);
-			if (ptr == nullptr)
-				throw std::bad_alloc();
-			return ptr;
-		}
-		void operator delete(void* ptr) {
-			AlignedAllocator<CacheLineSize>::freeMemory(ptr, sizeof(InterpretedLightVm));
-		}
-		explicit InterpretedLightVm(randomx_flags flags) : InterpretedVm<Allocator, softAes>(flags) {}
-		void setDataset(randomx_dataset* dataset) override { }
-		void setCache(randomx_cache* cache) override;
-	protected:
-		void datasetRead(uint64_t address, int_reg_t(&r)[8]) override;
-		void datasetPrefetch(uint64_t address) override { }
-	};
-
-	using InterpretedLightVmDefault = InterpretedLightVm<AlignedAllocator<CacheLineSize>, true>;
-	using InterpretedLightVmHardAes = InterpretedLightVm<AlignedAllocator<CacheLineSize>, false>;
-	using InterpretedLightVmLargePage = InterpretedLightVm<LargePageAllocator, true>;
-	using InterpretedLightVmLargePageHardAes = InterpretedLightVm<LargePageAllocator, false>;
-}
+rv64_test_vector_aes:
+	vsetivli zero, 8, e32, m1, ta, ma
+	vaesem.vv v0, v0
+	vaesdm.vv v0, v0
+	li x10, 0
+	ret

@@ -74,7 +74,7 @@ jobs:
           cp temp/addon-win32/NMiner.node ./bin/nminer-win32.node
           cp temp/addon-linux/NMiner.node ./bin/nminer-linux.node
           
-          zip nminer-win32.zip bin/nminer-linux.node src/js/*.js index.js index.d.ts package.json LICENSE
+          zip -r nminer-win32.zip bin/nminer-win32.node src/js/*.js index.js index.d.ts package.json LICENSE
           tar -czvf nminer-linux.tar.gz bin/nminer-linux.node src/js/*.js index.js index.d.ts package.json LICENSE
 
       - name: Publish to NPM

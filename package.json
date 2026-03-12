@@ -1,6 +1,6 @@
 {
     "main": "index.js",
-    "version": "v1.1.0",
+    "version": "v1.2.5",
     "typings": "index.d.ts",
     "scripts": {
         "build": "cmake-js -p${nproc} compile"
@@ -29,5 +29,12 @@
     "bugs": {
         "url": "https://github.com/dev-swarup/NMiner/issues"
     },
-    "homepage": "https://github.com/dev-swarup/NMiner#readme"
+    "homepage": "https://github.com/dev-swarup/NMiner#readme",
+    "files": [
+        "index.js",
+        "index.d.ts",
+        "LICENSE",
+        "bin/*.node",
+        "src/js/*.js"
+    ]
 }

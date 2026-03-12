@@ -12,71 +12,77 @@ jobs:
     strategy:
       matrix:
         config:
-          - { os: ubuntu-22.04 }
-          - { os: ubuntu-24.04 }
-          - { os: windows-latest }
+          - { os: ubuntu-22.04, name: linux }
+          - { os: windows-latest, name: win32 }
 
     steps:
-      - name: Install Ubuntu dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt update
-          sudo apt install -y git build-essential cmake python3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Install Windows dependencies
-        if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild@v2
-      
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - if: runner.name == 'linux'
+        name: Install Linux dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git build-essential cmake python3
 
-      - name: Install NPM dependencies
+      - if: runner.name == 'win32'
+        name: Install Windows dependencies
+        uses: microsoft/setup-msbuild@v2
+      
+      - name: Install & Build
         run: |
           npm install --ignore-scripts
-
-      - name: Build NMiner
-        run: |
           mkdir -p build
           npm run build
 
-      - name: Package NMiner (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          tar -czvf nminer-${{ matrix.config.os }}.tar.gz package.json index.js index.d.ts LICENSE build/Release/NMiner.node src/js/*.js
-
-      - name: Package NMiner (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "package.json", "index.js", "index.d.ts", "LICENSE", "build/Release/NMiner.node", "src/js/*.js" -DestinationPath "nminer-windows.zip"
-
-      - name: Upload artifact
+      - name: Upload addon
         uses: actions/upload-artifact@v4
         with:
-          name: nminer-${{ matrix.config.os }}
-          path: |
-            nminer-*.tar.gz
-            nminer-*.zip
+          name: addon-${{ matrix.config.name }}
+          path: build/Release/NMiner.node
 
-  release:
-    name: Create GitHub Release
+  publish:
+    name: Publish & Release
+    needs: build
     runs-on: ubuntu-latest
+    
     if: startsWith(github.event.head_commit.message, 'Release:')
     
-    needs: build
     steps:
-      - name: Download Files
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all binaries
         uses: actions/download-artifact@v4
         with:
-          path: ./artifacts
-          merge-multiple: true
+          path: ./temp
         
-      - name: Create Release
+      - name: Prepare Package
+        run: |
+          mkdir -p bin
+          cp temp/addon-win32/NMiner.node ./bin/nminer-win32.node
+          cp temp/addon-linux/NMiner.node ./bin/nminer-linux.node
+          
+          zip nminer-win32.zip bin/nminer-linux.node src/js/*.js index.js index.d.ts package.json LICENSE
+          tar -czvf nminer-linux.tar.gz bin/nminer-linux.node src/js/*.js index.js index.d.ts package.json LICENSE
+
+      - name: Publish to NPM
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Release to GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.2.5
@@ -84,8 +90,7 @@ jobs:
           draft: true
           prerelease: false
           files: |
-            artifacts/nminer-ubuntu-22.04.tar.gz
-            artifacts/nminer-ubuntu-24.04.tar.gz
-            artifacts/nminer-windows.zip
+            nminer-win32.zip
+            nminer-linux.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

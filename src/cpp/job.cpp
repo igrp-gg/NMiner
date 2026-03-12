@@ -2,11 +2,11 @@
     #include <intrin.h>
 #else
     #include <cpuid.h>
+    #include <sched.h>
+    #include <pthread.h>
     #include <sys/mman.h>
 #endif
 
-#include <sched.h>
-#include <pthread.h>
 #include <algorithm>
 
 #include "job.h"
@@ -36,7 +36,7 @@ bool LargePagesSupport() {
     void* ptr = mmap(nullptr, 2 * 1024 * 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
     if (ptr == MAP_FAILED) 
         return false;
-    
+
     munmap(ptr, 2 * 1024 * 1024);
     return true;
 #endif

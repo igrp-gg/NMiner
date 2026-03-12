@@ -5,7 +5,7 @@ on:
     branches: [ master ]
 
 jobs:
-  ubuntu:
+  build:
     timeout-minutes: 15
     runs-on: ${{ matrix.config.os }}
 
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.event.head_commit.message, 'Release:')
     
-    needs: ubuntu
+    needs: build
     steps:
       - name: Download Files
         uses: actions/download-artifact@v4

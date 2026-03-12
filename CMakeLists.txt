@@ -313,6 +313,11 @@ include_directories("${RANDOMX_INCLUDE}/cpp")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/node_modules/node-addon-api")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/node_modules/node-api-headers/include")
 
+if(MSVC)
+    add_compile_options(/wd4005)
+    add_compile_definitions(_HAS_EXCEPTIONS=1)
+endif()
+
 add_library(${CMAKE_PROJECT_NAME} SHARED ${SOURCES} ${CMAKE_JS_SRC})
 target_link_libraries(${CMAKE_PROJECT_NAME} ${CMAKE_JS_LIB})
 

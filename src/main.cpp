@@ -2,6 +2,10 @@
 #include <vector>
 #include <fstream>
 
+#ifdef _WIN32
+    #include <windows.h>
+#endif
+
 #include "job.h"
 #include "main.h"
 using namespace randomx;
@@ -26,23 +30,25 @@ Napi::Object InitFn(const Napi::CallbackInfo &info)
         {
             return ToNumber(info.Env(), -1);
         }));
-        
+
     exports.Set("hugePages", Napi::Function::New(env, [](const Napi::CallbackInfo &info) {
 #ifdef _WIN32
-        LUID luid;
-        HANDLE hToken;
-        TOKEN_PRIVILEGES tp;
+        {     
+            LUID luid;
+            HANDLE hToken;
+            TOKEN_PRIVILEGES tp;
         
-        OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);
-        LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid);
+            OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);
+            LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid);
     
-        tp.PrivilegeCount = 1;
-        tp.Privileges[0].Luid = luid;
-        tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+            tp.PrivilegeCount = 1;
+            tp.Privileges[0].Luid = luid;
+            tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
         
-        BOOL res = AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL);
+            BOOL res = AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL);
         
-        return ToNumber(info.Env(), (res && GetLastError() == ERROR_SUCCESS) ? 0 : -1);
+            return ToNumber(info.Env(), (res && GetLastError() == ERROR_SUCCESS) ? 0 : -1);
+        };
 #else
         std::ofstream nr_hugepages("/proc/sys/vm/nr_hugepages");
         if (!nr_hugepages)

@@ -14,12 +14,18 @@ jobs:
         config:
           - { os: ubuntu-22.04 }
           - { os: ubuntu-24.04 }
+          - { os: windows-latest, name: windows-latest }
 
     steps:
-      - name: Install dependencies
+      - name: Install Ubuntu dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install -y git build-essential cmake python3
+
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        uses: microsoft/setup-msbuild@v2
       
       - name: Install Node.js
         uses: actions/setup-node@v3
@@ -35,17 +41,27 @@ jobs:
 
       - name: Build NMiner
         run: |
-          mkdir -p build && npm run build
+          mkdir -p build
+          npm run build
 
-      - name: Package NMiner
+      - name: Package NMiner (Linux)
+        if: runner.os == 'Linux'
         run: |
-          tar -czvf nminer-${{ matrix.config.os }}.tar.gz package.json index.js index.d.ts LICENSE build/Release/NMiner.node src/js/*.js
+          tar -czvf nminer-${{ matrix.config.name }}.tar.gz package.json index.js index.d.ts LICENSE build/Release/NMiner.node src/js/*.js
+
+      - name: Package NMiner (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "package.json", "index.js", "index.d.ts", "LICENSE", "build/Release/NMiner.node", "src/js/*.js" -DestinationPath "nminer-windows.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nminer-${{ matrix.config.os }}
-          path: nminer-${{ matrix.config.os }}.tar.gz
+          name: nminer-${{ matrix.config.name }}
+          path: |
+            nminer-*.tar.gz
+            nminer-*.zip
 
   release:
     name: Create GitHub Release
@@ -58,26 +74,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
+          merge-multiple: true
         
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.3
-          release_name: NMiner v1.1.3
+          tag_name: v1.2.5
+          name: NMiner v1.2.5
           draft: true
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v1.1.3
-          name: NMiner v1.1.3
-          draft: true
           files: |
-            artifacts/nminer-ubuntu-22.04/nminer-ubuntu-22.04.tar.gz
-            artifacts/nminer-ubuntu-24.04/nminer-ubuntu-24.04.tar.gz
+            artifacts/nminer-ubuntu-22.04.tar.gz
+            artifacts/nminer-ubuntu-24.04.tar.gz
+            artifacts/nminer-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

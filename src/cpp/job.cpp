@@ -1,27 +1,45 @@
-#include <cpuid.h>
+#ifdef _WIN32
+    #include <intrin.h>
+#else
+    #include <cpuid.h>
+    #include <sys/mman.h>
+#endif
+
 #include <sched.h>
 #include <pthread.h>
 #include <algorithm>
-#include <sys/mman.h>
 
 #include "job.h"
 
-bool AESSupport()
-{
-    unsigned int eax, ebx, ecx, edx;
-    if (__get_cpuid(1, &eax, &ebx, &ecx, &edx))
-        return (ecx & bit_AES) != 0;
-    return false;
+bool AESSupport() {
+    unsigned int cpuInfo[4];
+
+#ifdef _WIN32
+    __cpuid((int*)cpuInfo, 1);
+#else
+    __get_cpuid(1, &cpuInfo[0], &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+#endif
+
+    return (cpuInfo[2] & (1 << 25)) != 0;
 };
 
-bool LargePagesSupport()
-{
-    void* ptr = mmap(nullptr, 2 * 1024 * 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-    if (ptr == MAP_FAILED)
-        return false;
+bool LargePagesSupport() {
+#ifdef _WIN32
+    void* ptr = VirtualAlloc(NULL, 2 * 1024 * 1024, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, PAGE_READWRITE);
+    if (ptr) {
+        VirtualFree(ptr, 0, MEM_RELEASE);
+        return true;
+    };
 
+    return false;
+#else
+    void* ptr = mmap(nullptr, 2 * 1024 * 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+    if (ptr == MAP_FAILED) 
+        return false;
+    
     munmap(ptr, 2 * 1024 * 1024);
     return true;
+#endif
 };
 
 randomx::job::job() 

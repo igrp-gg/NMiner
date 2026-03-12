@@ -14,7 +14,7 @@ jobs:
         config:
           - { os: ubuntu-22.04 }
           - { os: ubuntu-24.04 }
-          - { os: windows-latest, name: windows-latest }
+          - { os: windows-latest }
 
     steps:
       - name: Install Ubuntu dependencies
@@ -47,7 +47,7 @@ jobs:
       - name: Package NMiner (Linux)
         if: runner.os == 'Linux'
         run: |
-          tar -czvf nminer-${{ matrix.config.name }}.tar.gz package.json index.js index.d.ts LICENSE build/Release/NMiner.node src/js/*.js
+          tar -czvf nminer-${{ matrix.config.os }}.tar.gz package.json index.js index.d.ts LICENSE build/Release/NMiner.node src/js/*.js
 
       - name: Package NMiner (Windows)
         if: runner.os == 'Windows'
@@ -58,7 +58,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nminer-${{ matrix.config.name }}
+          name: nminer-${{ matrix.config.os }}
           path: |
             nminer-*.tar.gz
             nminer-*.zip

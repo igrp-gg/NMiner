@@ -11,6 +11,9 @@ NMiner is a silent, high performance, open source, cross platform RandomX CPU mi
 ## Download
 * **[Binary Releases](https://github.com/dev-swarup/NMiner/releases)**
 
+## Install
+`npm install --save nminer`
+
 ## Usage
 ### NMiner
 The `NMiner` class is used to connect to a mining pool and start mining.

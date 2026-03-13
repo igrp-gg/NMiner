@@ -12,9 +12,11 @@ using namespace randomx;
 
 Napi::Object InitFn(const Napi::CallbackInfo &info)
 {
-    job *m_job = new job();
     Napi::Env env = info.Env();
     Napi::Object exports = Napi::Object::New(env);
+    
+    std::shared_ptr<job> m_job = std::make_shared<job>();
+    
     if (!info[0].IsString() || !info[1].IsNumber() || !info[2].IsFunction())
     {
         ThrowError(env, "Expected arguments: mode, threads and submitFn");

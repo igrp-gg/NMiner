@@ -153,8 +153,6 @@ namespace randomx
     class job
     {
     private:
-        std::mutex m_mutex;
-
         uint64_t m_diff = 0;
         uint64_t m_target = 0;
         randomx_cache *m_cache = nullptr;
@@ -175,8 +173,9 @@ namespace randomx
             return reinterpret_cast<uint32_t *>(blob + kNonceOffset); 
         };
 
-        int m_hashes = 0;
-        int m_last_hashes = 0;
+        std::atomic<uint64_t> m_hashes{0};
+        std::atomic<uint64_t> m_last_hashes{0};
+
         std::chrono::system_clock::time_point m_last_time = std::chrono::system_clock::now();
 
         void calculate_hash(randomx_vm* vm, uint8_t blob[kMaxBlobSize], size_t size, uint32_t nonce, Napi::ThreadSafeFunction tsfn);

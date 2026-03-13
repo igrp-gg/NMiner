@@ -241,10 +241,7 @@ void randomx::job::start(const std::string &mode, size_t threads)
                     else
                         machine->nonce += threads;
 
-                    {
-                        std::lock_guard<std::mutex> lock(m_mutex);
-                        m_hashes++;
-                    };
+                    m_hashes++;
                 };
             });
         m_machine->machine.emplace_back(machine);
@@ -273,7 +270,7 @@ void randomx::job::calculate_hash(randomx_vm *vm, uint8_t blob[kMaxBlobSize], si
         if(sodium_bin2hex(result_hex, sizeof(result_hex), reinterpret_cast<unsigned char*>(&result), sizeof(result)) != 0)
             return;
 
-        tsfn.BlockingCall([this, nonce, result_hex](Napi::Env env, Napi::Function)
+        tsfn.NonBlockingCall([this, nonce, result_hex](Napi::Env env, Napi::Function)
             {
                 jsSubmit->Call({ ToString(env, job_id), ToString(env, nonce), ToString(env, result_hex), ToNumber(env, m_diff) });
             });

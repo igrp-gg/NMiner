@@ -12,6 +12,7 @@ interface MinerOptions {
 
 interface ProxyOptions {
     port?: number;
+    proxy?: string;
     logging?: boolean;
     handler?: EventEmitter;
     onShare?: (address: string, target: number, height?: number) => void | Promise<void>;

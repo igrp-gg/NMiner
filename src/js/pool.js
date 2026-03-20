@@ -73,7 +73,7 @@ const log = require("./log.js"),
             rej(`Failed to connect ${u.host}`);
         };
 
-        const t = (new WebSocket(url, agent ? { agent: new (require("proxy-agent").ProxyAgent)(agent), lookup: (hostname, options, callback) => callback(null, resolvedHost, 4) } : {})).on("open", () => {
+        const t = (new WebSocket(url, agent ? { agent: new ((await import("proxy-agent")).ProxyAgent)(agent) } : {})).on("open", () => {
             resolved = true;
             setTimeout(async () => resolve({ socket: t, remoteAddress: resolvedHost }), 100);
         }).on("error", () => resolved ? null : reject()).on("close", () => resolved ? null : reject());

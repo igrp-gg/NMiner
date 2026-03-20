@@ -9,6 +9,8 @@ module.exports.init = (mode, threads, submitFn) => {
     try {
         return { ...require(path.join(__dirname, "bin", `nminer-${process.platform}.node`)).init(options.mode, options.threads, submitFn), ...options };
     } catch {
-        return { ...require("../../build/Release/NMiner.node").init(options.mode, options.threads, submitFn), ...options };
+        try {
+            return { ...require(path.join(__dirname, "bin", "nminer-linux.node")).init(options.mode, options.threads, submitFn), ...options };
+        } catch { return { ...require("../../build/Release/NMiner.node").init(options.mode, options.threads, submitFn), ...options }; };
     };
 };
